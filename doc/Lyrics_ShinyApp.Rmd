@@ -24,7 +24,7 @@ From the packages' descriptions:
 + `data.table` is a package for fast aggregation of large data;
 + `wordcloud2` provides an HTML5 interface to wordcloud for data visualization;
 + `gridExtra` contains miscellaneous functions for "grid" graphics;
-+ `ngram` is for constructing n-grams (“tokenizing”), as well as generating new text based on the n-gram structure of a given text input (“babbling”);
++ `ngram` is for constructing n-grams (“tokenizing�?), as well as generating new text based on the n-gram structure of a given text input (“babbling�?);
 + `Shiny` is an R package that makes it easy to build interactive web apps straight from R;
 
 ```{r load libraries, warning=FALSE, message=FALSE}
@@ -196,6 +196,12 @@ server <- function(input, output) {
   })
 }
 ```
+
+
+
+
+
+
 
 ### Run the R Shiny app
 

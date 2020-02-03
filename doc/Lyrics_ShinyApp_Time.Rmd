@@ -1,0 +1,127 @@
+---
+title: "The Song Story"
+author: "Xiyao Yan(xy2431)"
+date: "2020/2/2"
+output: html_document
+runtime: shiny
+---
+
+
+```{r load libraries, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(tidytext)
+library(plotly)
+library(DT)
+library(tm)
+library(data.table)
+library(scales)
+library(wordcloud2)
+library(gridExtra)
+library(ngram)
+library(shiny) 
+```
+
+
+> 1.Did words most used in lyric vary along with time?  
+    ShinyApp is used to draw the wordcloud to find the answer
+
+***
+
+### Load the processed lyrics data
+
+We use the processed data and artist information for our analysis, and use the factor "period" to make classificaiton for the year. Besides, we create a named vector to make preparation for visualization.
+
+```{r load data, warning=FALSE, message=FALSE}
+# load lyrics data
+load('../output/processed_lyrics.RData') 
+
+##take a look of year,year 112 and year 702 need to be deleted
+table(dt_lyrics$year) 
+
+dt_lyrics_time<-dt_lyrics%>%
+  filter(year>1000)%>%
+  mutate("period" = cut(year,breaks = seq(1969,2019,10),
+            labels = c("1970s","1980s","1990s","2000s","2010s")))%>%
+  select(song,year,period,everything())
+
+head(dt_lyrics_time)
+
+corpus_time <- VCorpus(VectorSource(dt_lyrics_time$stemmedwords))
+word_tibble_time <- tidy(corpus_time) %>%
+  select(text) %>%
+  mutate(id = row_number()) %>%
+  unnest_tokens(word, text)
+
+time_list <- c("1970s", "1980s", "1990s", "2000s", "2010s")
+```
+
+
+### Specify the user interface for the R Shiny app
+```{r}
+# Define UI for app that draws a histogram ----
+ui <- navbarPage(strong("Lyrics Analysis"),
+  tabPanel("Overview",
+    titlePanel("Most frequent words"),
+    # Sidebar layout with input and output definitions ----
+    sidebarLayout(
+      # Sidebar panel for inputs ----
+      sidebarPanel(
+        sliderInput(inputId = "nwords1",
+                    label = "Number of terms in the first word cloud:",
+                    min = 5, max = 100, value = 50),
+        selectInput('period1', 'Period of the first word cloud', 
+                    time_list, selected='1970s')
+
+    ),
+    # Main panel for displaying outputs ----
+    mainPanel(
+      wordcloud2Output(outputId = "WC1", height = "300")
+    )
+  ),
+  hr(),
+  sidebarLayout(
+      # Sidebar panel for inputs ----
+      sidebarPanel(
+        sliderInput(inputId = "nwords2",
+                    label = "Number of terms in the second word cloud:",
+                    min = 5, max = 100, value = 50),
+        selectInput('period2', 'Period of the second word cloud', 
+                    time_list, selected='1980s')
+    ),
+    # Main panel for displaying outputs ----
+    mainPanel(
+      wordcloud2Output(outputId = "WC2", height = "300")
+    )
+  )
+           ),
+  tabPanel("Data", 
+           DT::dataTableOutput("table"))
+)
+```
+
+
+### Define server logic required for ui ----
+```{r}
+server <- function(input, output) {
+  output$WC1 <- renderWordcloud2({
+    count(filter(word_tibble_time, id %in% which(dt_lyrics_time$period == input$period1)), word, sort = TRUE) %>%
+      slice(1:input$nwords1) %>%
+      wordcloud2(size=0.6, rotateRatio=0.2)
+  })
+  output$WC2 <- renderWordcloud2({
+    count(filter(word_tibble_time, id %in% which(dt_lyrics_time$period == input$period2)), word, sort = TRUE) %>%
+      slice(1:input$nwords2) %>%
+      wordcloud2(size=0.6, rotateRatio=0.2)
+  })
+  output$table <- DT::renderDataTable({
+    DT::datatable(dt_lyrics_time)
+  })
+}
+```
+
+
+### Run the R Shiny app
+
+```{r shiny app, warning=FALSE, message=FALSE}
+shinyApp(ui, server)
+```
