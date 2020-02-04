@@ -1,5 +1,5 @@
 ---
-title: "The Song Story"
+title: "Word frequency changes over time"
 author: "Xiyao Yan(xy2431)"
 date: "2020/2/2"
 output: html_document
@@ -22,7 +22,7 @@ library(shiny)
 ```
 
 
-> 1.Did words most used in lyric vary along with time?  
+> 1.Did words most used in lyrics vary along with time?  
     ShinyApp is used to draw the wordcloud to find the answer
 
 ***
@@ -35,11 +35,11 @@ We use the processed data and artist information for our analysis, and use the f
 # load lyrics data
 load('../output/processed_lyrics.RData') 
 
-##take a look of year,year 112 and year 702 need to be deleted
+##take a look of year,year 112, year 702 and year 1968 need to be deleted
 table(dt_lyrics$year) 
 
 dt_lyrics_time<-dt_lyrics%>%
-  filter(year>1000)%>%
+  filter(year>1969)%>%
   mutate("period" = cut(year,breaks = seq(1969,2019,10),
             labels = c("1970s","1980s","1990s","2000s","2010s")))%>%
   select(song,year,period,everything())
@@ -125,3 +125,97 @@ server <- function(input, output) {
 ```{r shiny app, warning=FALSE, message=FALSE}
 shinyApp(ui, server)
 ```
+
+Using the word cloud we can find some words like "LOVE", "BABY" and "TIME" that remain the most frequent occurence throughout the time. However, there are also some changes.If we limit the number of terms displayed word cloud, we'll find some words like "PEOPLE" and "WAITING", which occured frequently in 1970s, became less popular in the following year while the word "GIRL" was used more often.  
+
+
+> 2.Can some trends be applied to the frquency?  
+
+***
+
+To see the weather there are some trend in the frquency of words, the top 20 of words are used. Based on the output of part 1, we can find the number of songs varis a lot with year(47 in 1976 VS 42457 in 2006), thus the conclusion will be got from the analysis of the ratio(occurence of the word/total words used)
+```{r}
+word_frquence_time<-left_join(dt_lyrics_time,word_tibble_time,"id")%>%
+  select(id,period,word)
+
+count<-word_frquence_time%>%
+  group_by(period)%>%
+  count(word)%>%
+  group_by(period)%>%
+  arrange(period,-n)%>%
+  pivot_wider(names_from = 1,values_from = 3)
+
+sum<-apply(count[,2:6],2,sum,na.rm = T)
+
+##The word "IVE" and "YOURE" can be seen as stemword, thus can be removed from the data. 
+data<-count[1:20,]%>%
+  filter( word != "ive" & word != "youre")%>%
+  mutate(`1970s` = `1970s`/sum[1],
+         `1980s` = `1980s`/sum[2],
+         `1990s` = `1990s`/sum[3],
+         `2000s` = `2000s`/sum[4],
+         `2010s` = `2010s`/sum[5])
+
+g1<-ggplot(data,aes(word))+
+  geom_point(aes(y = `1970s`,col = "1970s"))+
+  geom_point(aes(y = `1980s`,col = "1980s"))+
+  geom_point(aes(y = `1990s`,col = "1990s"))+
+  geom_point(aes(y = `2000s`,col = "2000s"))+
+  geom_point(aes(y = `2010s`,col = "2010s"))+
+  coord_flip()+
+  labs(title = "Words Frquency from 1970s to 2010s",
+       x = "Word",
+       y = "Percent")+
+  scale_colour_discrete(name  ="Period")+
+  theme_light()
+  
+g1
+
+###To have a more specific look of the trend, separate top3 words(i.e LOVE, BABY AND TIME) from others to have two new graphs.
+g2<-ggplot(data[-(1:3),],aes(word))+
+  geom_point(aes(y = `1970s`,col = "1970s"))+
+  geom_point(aes(y = `1980s`,col = "1980s"))+
+  geom_point(aes(y = `1990s`,col = "1990s"))+
+  geom_point(aes(y = `2000s`,col = "2000s"))+
+  geom_point(aes(y = `2010s`,col = "2010s"))+
+  coord_flip()+
+  labs(title = "A Cycle exists for words frequency",
+       y = "Percent",
+       x = "Word")+
+  scale_colour_discrete(name  ="Period")+
+  theme_light()
+g2
+
+```
+
+It turns out there seems to be a cycle for the specific word, words would be popular again years later. However, the distance from the highest to the lowest and the period for the cycle may differ from word to word. For example,the range for word "WORLD" is much smaller than that for "NIGHT", period for word "EYES" and "NIGHT" are more likely to be 20 years while it for word "MIND" may be longer than 50 years.
+
+
+> 3.Can predict words frequency using rules we found above?  
+
+***
+
+```{r}
+
+g3<-data[1:3,]%>%
+  pivot_longer(2:6,names_to = "period",values_to = "percent")%>%
+  ggplot()+
+  geom_point(aes(period,percent,col = word))+
+  geom_line(aes(x = rep(1:5,3),percent,col = word))+
+  labs(title = "Trend for TOP3 Words")+
+  theme_light()
+
+g3
+
+g4<-data[-(1:3),]%>%
+  pivot_longer(2:6,names_to = "period",values_to = "percent")%>%
+  ggplot()+
+  geom_point(aes(period,percent,col = word))+
+  geom_line(aes(x = rep(1:5,15),percent,col = word))+
+  labs(title = "Trend for Words except for TOP3")+
+  theme_light()
+g4
+
+```
+
+Still focus on the Top20 Words, on one hand, for the words whose cycle are approximately estimated, it may be possible to estimate the percent of frequency in 2020s compared to 2010s.Deatiled models need to be used to do this estimation. On the other hand, words like "WAITING" whose period is still not known, it's hard to say what will happen to its frquency in lyrics in the next ten years.
